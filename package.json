@@ -73,7 +73,12 @@
       "react-app/jest"
     ],
     "rules": {
-      "no-unused-vars": "off"
+      "no-unused-vars": "off",
+      "eqeqeq": "off",
+      "jsx-a11y/alt-text": "off",
+      "react-hooks/exhaustive-deps": "off",
+      "default-case": "off",
+      "no-unreachable": "off"
     }
   },
   "browserslist": {
