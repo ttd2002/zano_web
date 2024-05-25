@@ -97,7 +97,7 @@ const MessageContainer = () => {
   useEffect(() => {
     if (selectedConversation && socket) {
       socket.emit("joinRoom", selectedConversation._id);
-    }s
+    }
   }, [selectedConversation, socket]);
 
   useEffect(() => {
