@@ -55,6 +55,7 @@ const MessageContainer = () => {
   const isCreateSingleConversation = useSelector(selectIsCreateSingleConversation);
   const dispatch = useDispatch();
   const theme = useTheme();
+  const [fileExtension, setFileExtension] = useState("");
 
   useEffect(() => {
     dispatch(setIsCreateSingleConversation(false));
@@ -94,7 +95,13 @@ const MessageContainer = () => {
   }, [selectedConversation]);
 
   useEffect(() => {
-    const receiveMessageHandler = (newMessage) => {
+    if (selectedConversation && socket) {
+      socket.emit("joinRoom", selectedConversation._id);
+    }s
+  }, [selectedConversation, socket]);
+
+  useEffect(() => {
+    const receiveMessageHandler = async (newMessage) => {
       setMessages(prevMessages => [...prevMessages, newMessage]);
     };
 
@@ -130,33 +137,82 @@ const MessageContainer = () => {
     const file = e.target.files[0];
     setSelectedFile(file);
     console.log("Selected file:", file);
+    //lấy đuôi file
+    const fileName = file.name;
+    const fileExtension = fileName.split('.').pop().toLowerCase();
+    setFileExtension(fileExtension);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!message.trim() && !selectedFile) return;
+    if (!message && !selectedFile) return;
+    // if (message.trim() == "") return;
+    if (!selectedConversation) {
+      console.log("Không có cuộc trò chuyện nào được chọn");
+      return;
+    }
+    // console.log("Sending message:", message);
 
     try {
       if (selectedFile) {
+        // const image = new FormData();
+        // image.append("imageChat", selectedFile);
+        // console.log(image);
+
         const formData = new FormData();
         formData.append("imageChat", selectedFile);
 
-        const res = await axios.post("/mes/uploadImageApp", formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+        const res = await axios.post(
+          "/mes/uploadImageApp",
+          formData,
+          {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
 
+        console.log("link ảnh", res.data.link);
+        let messageType;
+        switch (fileExtension) {
+          case "jpg":
+          case "jpeg":
+          case "png":
+          case "gif":
+            messageType = "image";
+            break;
+          case "pdf":
+          case "doc":
+          case "docx":
+          case "xls":
+          case "xlsx":
+            messageType = "file";
+            break;
+          case "mp3":
+            messageType = "voice";
+            break;
+          case "mp4":
+            messageType = "video"
+            break;
+        }
         socket.emit("sendMessage", {
           senderId,
           conversationId: selectedConversation._id,
           message: res.data.link,
-          type: "image",
+          type: messageType,
         });
-
-        setMessages(prev => [
-          ...prev,
-          { senderId, conversationId: selectedConversation._id, message: res.data.link, type: "image" },
-        ]);
+        const updatedMessages = [
+          ...messages,
+          {
+            senderId,
+            conversationId: selectedConversation._id,
+            message: res.data.link,
+            type: messageType,
+          },
+        ];
+        setMessages(updatedMessages);
         setSelectedFile(null);
+        setFileExtension("");
       } else {
         socket.emit("sendMessage", {
           senderId,
@@ -164,18 +220,26 @@ const MessageContainer = () => {
           message,
           type: "text",
         });
-
-        setMessages(prev => [
-          ...prev,
-          { senderId, conversationId: selectedConversation._id, message, type: "text" },
-        ]);
+        const updatedMessages = [
+          ...messages,
+          {
+            senderId,
+            conversationId: selectedConversation._id,
+            message,
+            type: "text",
+          },
+        ];
+        setMessages(updatedMessages);
       }
 
+      // console.log("ok");
+      if (message.trim() !== "") {
+        setSelectedFile(null);
+      }
       setMessage("");
       setShowEmojiPicker(false);
-      socket.emit("requestRender");
     } catch (error) {
-      console.log("Error sending message:", error);
+      console.log(error);
     }
   };
 
@@ -291,7 +355,7 @@ const NoChatSelected = () => {
         direction={"Column"}
         justifyContent="center" // Canh giữa theo chiều dọc
         alignItems="center"
-        sx={{ width: "100%" , mt: "10%" }}
+        sx={{ width: "100%", mt: "10%" }}
       >
         <Chats size={200} />
         <Typography fontSize={60} variant="subtitle1" align="center" mt={2}>
